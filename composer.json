@@ -1,0 +1,124 @@
+{
+    "name": "dbravoan/dbcms-starter",
+    "type": "project",
+    "keywords": [
+        "laravel",
+        "cms",
+        "multimarket",
+        "multilanguage",
+        "mcp",
+        "modules",
+        "geo",
+        "seo",
+        "passport"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "David Bravo",
+            "email": "hola@davidbravo.com.es",
+            "homepage": "https://github.com/dbravoan",
+            "role": "Lead Developer"
+        }
+    ],
+    "homepage": "https://github.com/dbravoan/dbcms",
+    "support": {
+        "issues": "https://github.com/dbravoan/dbcms/issues",
+        "docs": "https://github.com/dbravoan/dbcms#readme"
+    },
+    "description": "Starter Laravel para los paquetes Composer de dbCMS.",
+    "require": {
+        "php": "^8.4",
+        "laravel/framework": "^13.0",
+        "dbravoan/dbcms-core": "^1.0",
+        "dbravoan/dbcms-module-ai-assistant": "^1.0",
+        "dbravoan/dbcms-module-content-audit": "^1.0",
+        "dbravoan/dbcms-module-mcp": "^1.0",
+        "dbravoan/dbcms-blocks-basic": "^1.0",
+        "dbravoan/dbcms-theme-db-cyber": "^1.0",
+        "dbravoan/dbcms-admin-theme-dbcms": "^1.0"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.14",
+        "laravel/sail": "^1.26",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.1",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-arch": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "phpstan/phpstan": "^2.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ProjectTests\\": "tests/"
+        },
+        "exclude-from-classmap": [
+            "tests/Fixtures/"
+        ]
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pest --configuration=phpunit.xml",
+            "npm test"
+        ],
+        "check": [
+            "Composer\\Config::disableProcessTimeout",
+            "@composer validate --strict",
+            "@php vendor/bin/pint --test",
+            "@php vendor/bin/phpstan analyse --memory-limit=2G",
+            "@composer audit",
+            "npm run build"
+        ],
+        "phpstan": "phpstan analyse --memory-limit=2G",
+        "pint": "pint",
+        "test:workbench": "@composer --working-dir=workbench test",
+        "test:all": [
+            "@test",
+            "@test:workbench"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "audit": {
+            "block-insecure": true
+        },
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        },
+        "platform-check": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "archive": {
+        "exclude": [
+            "/packages",
+            "/workbench",
+            "/.agents",
+            "/.git",
+            "/composer.lock"
+        ]
+    },
+    "extra": {
+        "dbcms": {
+            "repository": "https://github.com/dbravoan/dbcms-starter"
+        }
+    }
+}

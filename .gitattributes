@@ -1,0 +1,6 @@
+# Los archivos generados y secretos no forman parte de la plantilla distribuida.
+/vendor export-ignore
+/node_modules export-ignore
+/.env export-ignore
+/public/build export-ignore
+/public/hot export-ignore
