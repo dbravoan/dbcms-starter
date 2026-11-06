@@ -1,0 +1,61 @@
+name: Despliegue VPS opcional
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'progress/**'
+      - '.agents/**'
+      - '**/*.md'
+      - '.editorconfig'
+      - '.gitattributes'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  quality:
+    if: vars.DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.repository != 'dbravoan/dbcms-starter' && github.repository != 'dbravoan/dbcms'
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+  deploy:
+    needs: quality
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Construir imagen PHP 8.4 y Node 22
+        run: docker build -f docker/ci/Dockerfile -t project-build .
+      - name: Preparar artefacto con dependencias de producción
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+        run: |
+          test -f composer.lock && test -f package-lock.json
+          mkdir -p "$RUNNER_TEMP/artifact"
+          docker run --rm --env COMPOSER_AUTH --volume "$RUNNER_TEMP/artifact:/output" project-build bash -euc '
+            mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs
+            composer validate --strict
+            composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-progress --optimize-autoloader
+            npm ci
+            npm run build
+            rm -f bootstrap/cache/*.php bootstrap/cache/*.json
+            tar -czf /output/application.tar.gz --exclude=.git --exclude=.github --exclude=.agents --exclude=node_modules --exclude=tests --exclude=workbench --exclude=packages --exclude=storage --exclude=public/storage --exclude=public/uploads --exclude=".env" --exclude=".env.*" --exclude=auth.json --exclude=.npmrc --exclude=.netrc --exclude=compose.yaml --exclude=phpunit.xml --exclude=vendor/bin --exclude=progress .
+          '
+      - name: Transferir y activar release
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          VPS_DIR: ${{ secrets.VPS_DIR }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SSH_FINGERPRINT: ${{ secrets.VPS_SSH_FINGERPRINT }}
+          DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+          VPS_PHP_BINARY: ${{ vars.VPS_PHP_BINARY || 'php' }}
+          VPS_FPM_SERVICE: ${{ vars.VPS_FPM_SERVICE }}
+        run: bash .github/scripts/deploy.sh "$RUNNER_TEMP/artifact/application.tar.gz"

@@ -1,0 +1,71 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: docker/ci/Dockerfile
+    environment:
+      APP_ENV: testing
+      APP_DEBUG: 'false'
+      DBCMS_TEST_ISOLATED: '1'
+      DBCMS_TEST_DATABASE: testing
+      DBCMS_TEST_DB_ADMIN_USER: root
+      DBCMS_TEST_DB_ADMIN_PASSWORD: ci-only-password
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_DATABASE: testing
+      DB_USERNAME: sail
+      DB_PASSWORD: secret
+      CACHE_STORE: array
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      REDIS_HOST: redis
+      COMPOSER_AUTH: '${COMPOSER_AUTH:-}'
+      QUALITY_SUITE: '${QUALITY_SUITE:-test:integration}'
+    command:
+      - bash
+      - -euc
+      - |
+        mkdir -p storage/framework/cache/data storage/framework/views storage/framework/sessions storage/logs bootstrap/cache
+        cp .env.example .env
+        composer validate --strict
+        if [ -f workbench/composer.json ]; then
+          composer --working-dir=workbench install --prefer-dist --no-interaction --no-progress
+        else
+          composer install --prefer-dist --no-interaction --no-progress
+        fi
+        php artisan key:generate --force --no-interaction
+        npm ci
+        if [ -f workbench/composer.json ]; then
+          composer --working-dir=workbench check
+          composer test
+          case "$$QUALITY_SUITE" in test:integration|test:release) composer --working-dir=workbench "$$QUALITY_SUITE" ;; *) exit 64 ;; esac
+        else
+          composer check
+          composer test
+        fi
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  mysql:
+    image: mysql:8.0
+    tmpfs: [/var/lib/mysql]
+    environment:
+      MYSQL_DATABASE: testing
+      MYSQL_USER: sail
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: ci-only-password
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql --protocol=TCP --host=127.0.0.1 --user="$${MYSQL_USER}" --database="$${MYSQL_DATABASE}" --connect-timeout=2 --batch --skip-column-names --execute="SELECT 1" >/dev/null 2>&1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 20
